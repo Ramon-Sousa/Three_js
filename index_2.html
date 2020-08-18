@@ -27,201 +27,23 @@
     <!-- <script src="js/GridHelper.js"></script> -->
     <!-- <script src="js/cena.js"></script> -->
 
-    <script>
-        var camera, scene, renderer;
-        var plane;
-        var mouse, raycaster, isShiftDown = false;
-        var rollOverMesh, rollOverMaterial;
-        var cubeGeo, cubeMaterial;
-        var objects = [];
-        init();
-        render();
-
-        function init() {
-            camera = new THREE.PerspectiveCamera(45,
-                window.innerWidth / window.innerHeight, 1, 10000);
-            camera.position.set(500, 800, 1300);
-            camera.lookAt(0, 0, 0);
-            scene = new THREE.Scene();
-            scene.background = new THREE.Color(0xf0f0f0);
-            var rollOverGeo = new THREE.BoxBufferGeometry(30, 30, 30);
-            rollOverMaterial = new THREE.MeshBasicMaterial({
-                color: 0xff0000,
-                opacity: 0.5,
-                transparent: true
-            });
-            rollOverMesh = new THREE.Mesh(rollOverGeo, rollOverMaterial);
-            scene.add(rollOverMesh);
-            cubeGeo = new THREE.BoxBufferGeometry(30, 30, 30);
-            cubeMaterial
-                = new THREE.MeshBasicMaterial({
-                    color: 0x40c21f
-                });
-            var predio = new THREE.GLTFLoader();
-            predio.load('predio_comprido.glb', function(gltf) {
-                gltf.attributes.positionStart = gltf.attributes.position.clone();
-                scene.add(gltf.scene);
-            });
-            var gridGeometry = THREE.GridBoxGeometry(predio, false);
-            var grid = new THREE.LineSegments(gridGeometry, new THREE.LineBasicMaterial({
-                color: "aqua"
-            }));
-            scene.add(grid);
-            raycaster = new THREE.Raycaster();
-            mouse = new THREE.Vector2();
-
-            function GridBoxGeometry(geometry, independent) {
-                if (!(geometry instanceof THREE.BoxBufferGeometry)) {
-                    console.log("GridBoxGeometry: the parameter 'geometry' has to be of the type THREE.BoxBufferGeometry");
-                    return geometry;
-                }
-                independent = independent !== undefined ? independent : false;
-                let newGeometry = new THREE.BoxBufferGeometry();
-                let position = geometry.attributes.position;
-                newGeometry.attributes.position = independent === false ? position : position.clone();
-                let segmentsX = geometry.parameters.widthSegments || 1;
-                let segmentsY = geometry.parameters.heightSegments || 1;
-                let segmentsZ = geometry.parameters.depthSegments || 1;
-                let startIndex = 0;
-                let indexSide1 = indexSide(segmentsZ, segmentsY, startIndex);
-                startIndex += (segmentsZ + 1) * (segmentsY + 1);
-                let indexSide2 = indexSide(segmentsZ, segmentsY, startIndex);
-                startIndex += (segmentsZ + 1) * (segmentsY + 1);
-                let indexSide3 = indexSide(segmentsX, segmentsZ, startIndex);
-                startIndex += (segmentsX + 1) * (segmentsZ + 1);
-                let indexSide4 = indexSide(segmentsX, segmentsZ, startIndex);
-                startIndex += (segmentsX + 1) * (segmentsZ + 1);
-                let indexSide5 = indexSide(segmentsX, segmentsY, startIndex);
-                startIndex += (segmentsX + 1) * (segmentsY + 1);
-                let indexSide6 = indexSide(segmentsX, segmentsY, startIndex);
-                let fullIndices = [];
-                fullIndices = fullIndices.concat(indexSide1);
-                fullIndices = fullIndices.concat(indexSide2);
-                fullIndices = fullIndices.concat(indexSide3);
-                fullIndices = fullIndices.concat(indexSide4);
-                fullIndices = fullIndices.concat(indexSide5);
-                fullIndices = fullIndices.concat(indexSide6);
-                newGeometry.setIndex(fullIndices);
-
-                function indexSide(x, y, shift) {
-                    let indices = [];
-                    for (let i = 0; i < y + 1; i++) {
-                        let index11 = 0;
-                        let index12 = 0;
-                        for (let j = 0; j < x; j++) {
-                            index11 = (x + 1) * i + j;
-                            index12 = index11 + 1;
-                            let index21 = index11;
-                            let index22 = index11 + (x + 1);
-                            indices.push(shift + index11, shift + index12);
-                            if (index22 < ((x + 1) * (y + 1) - 1)) {
-                                indices.push(shift + index21, shift + index22);
-                            }
-                        }
-                        if ((index12 + x + 1) <= ((x + 1) * (y + 1) - 1)) {
-                            indices.push(shift + index12, shift + index12 + x + 1);
-                        }
-                    }
-                    return indices;
-                }
-                return newGeometry;
-            };
-            var ambientLight = new THREE.AmbientLight(0x404040);
-            scene.add(ambientLight);
-            var keyLight = new THREE.DirectionalLight(new THREE.Color('hsl(0, 100%, 100%)'), 1.0);
-            keyLight.position.set(-100,
-                0, 100);
-            var backLight = new THREE.DirectionalLight(0xffffff, 1.0);
-            backLight.position.set(100, 0, -100).normalize();
-            scene.add(keyLight);
-            scene.add(backLight);
-            renderer = new THREE.WebGLRenderer({
-                antialias: true
-            });
-            renderer.setSize(window.innerWidth,
-                window.innerHeight);
-            document.body.appendChild(renderer.domElement);
-            document.addEventListener('mousemove', onDocumentMouseMove, false);
-            document.addEventListener('mousedown', onDocumentMouseDown, false);
-            document.addEventListener('keydown', onDocumentKeyDown,
-                false);
-            document.addEventListener('keyup', onDocumentKeyUp, false);
-            window.addEventListener('resize', onWindowResize, false);
-            var controls = new THREE.OrbitControls(camera, renderer.domElement);
-            controls.minDistance = 1;
-            controls.maxDistance =
-                2555;
-            const animate = () => {
-                requestAnimationFrame(animate);
-                controls.update();
-                renderer.render(scene, camera)
-            };
-            animate();
-        }
-
-        function onWindowResize() {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        }
-
-        function onDocumentMouseMove(event) {
-            event.preventDefault();
-            mouse.set((event.clientX / window.innerWidth) * 2 - 1, -(event.clientY / window.innerHeight) * 2 + 1);
-            raycaster.setFromCamera(mouse,
-                camera);
-            var intersects = raycaster.intersectObjects(objects);
-            if (intersects.length > 0) {
-                var intersect = intersects[0];
-                rollOverMesh.position.copy(intersect.point).add(intersect.face.normal);
-                rollOverMesh.position.divideScalar(50).floor().multiplyScalar(50).addScalar(25);
-            }
-            render();
-        }
-
-        function onDocumentMouseDown(event) {
-            event.preventDefault();
-            mouse.set((event.clientX / window.innerWidth) * 2 - 1, -(event.clientY / window.innerHeight) * 2 + 1);
-            raycaster.setFromCamera(mouse, camera);
-            var intersects = raycaster.intersectObjects(objects);
-            if (intersects.length > 0) {
-                var intersect = intersects[0];
-                if (isShiftDown) {
-                    if (intersect.object !== plane) {
-                        scene.remove(intersect.object);
-                        objects.splice(objects.indexOf(intersect.object), 1);
-                    }
-                } else {
-                    var voxel = new THREE.Mesh(cubeGeo,
-                        cubeMaterial);
-                    voxel.position.copy(intersect.point).add(intersect.face.normal);
-                    voxel.position.divideScalar(50).floor().multiplyScalar(50).addScalar(25);
-                    scene.add(voxel);
-                    objects.push(voxel);
-                }
-                render();
-            }
-        }
-
-        function onDocumentKeyDown(event) {
-            switch (event.keyCode) {
-                case 16:
-                    isShiftDown = true;
-                    break;
-            }
-        }
-
-        function onDocumentKeyUp(event) {
-            switch (event.keyCode) {
-                case 16:
-                    isShiftDown = false;
-                    break;
-            }
-        }
-
-        function render() {
-            renderer.render(scene, camera);
-        }
+    <script type="module">
+        import { APP } from '/js/app.js'; var camera, scene, renderer; var plane; var mouse, raycaster, isShiftDown = false; var rollOverMesh, rollOverMaterial; var cubeGeo, cubeMaterial; var objects = []; init(); render(); function init() { camera = new THREE.PerspectiveCamera(45,
+        window.innerWidth / window.innerHeight, 1, 10000); camera.position.set(500, 600, 6000); camera.lookAt(0, 0, 0); scene = new THREE.Scene(); scene.background = new THREE.Color(0xf0f0f0); var rollOverGeo = new THREE.BoxBufferGeometry(30, 30, 30);
+        rollOverMaterial = new THREE.MeshBasicMaterial({ color: 0xff0f56, opacity: 0.5, transparent: true }); rollOverMesh = new THREE.Mesh(rollOverGeo, rollOverMaterial); scene.add(rollOverMesh); cubeGeo = new THREE.BoxBufferGeometry(30, 30, 30); cubeMaterial
+        = new THREE.MeshBasicMaterial({ color: 0x40c21f }); var predio = new THREE.GLTFLoader(); predio.load('predio_comprido.glb', function(gltf) { scene.add(gltf.scene); }); var geometry = new THREE.PlaneBufferGeometry(3500, 2000); geometry.rotateZ(-Math.PI
+        / 2); plane = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({ visible: false })); scene.add(plane); objects.push(plane); var gridHelper = new THREE.GridHelper(plane, 95); scene.add(gridHelper); raycaster = new THREE.Raycaster(); mouse =
+        new THREE.Vector2(); var ambientLight = new THREE.AmbientLight(0x404040); scene.add(ambientLight); var keyLight = new THREE.DirectionalLight(new THREE.Color('hsl(0, 100%, 100%)'), 1.0); keyLight.position.set(-100, 0, 100); var backLight = new
+        THREE.DirectionalLight(0xffffff, 1.0); backLight.position.set(100, 0, -100).normalize(); scene.add(keyLight); scene.add(backLight); renderer = new THREE.WebGLRenderer({ antialias: true }); renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement); document.addEventListener('mousemove', onDocumentMouseMove, false); document.addEventListener('mousedown', onDocumentMouseDown, false); document.addEventListener('keydown', onDocumentKeyDown, false);
+        document.addEventListener('keyup', onDocumentKeyUp, false); window.addEventListener('resize', onWindowResize, false); var controls = new THREE.OrbitControls(camera, renderer.domElement); controls.minDistance = 1; controls.maxDistance = 2555; const
+        animate = () => { requestAnimationFrame(animate); controls.update(); renderer.render(scene, camera) }; animate(); } function onWindowResize() { camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth,
+        window.innerHeight); } function onDocumentMouseMove(event) { event.preventDefault(); mouse.set((event.clientX / window.innerWidth) * 2 - 1, -(event.clientY / window.innerHeight) * 2 + 1); raycaster.setFromCamera(mouse, camera); var intersects
+        = raycaster.intersectObjects(objects); if (intersects.length > 0) { var intersect = intersects[0]; rollOverMesh.position.copy(intersect.point).add(intersect.face.normal); rollOverMesh.position.divideScalar(50).floor().multiplyScalar(50).addScalar(25);
+        } render(); } function onDocumentMouseDown(event) { event.preventDefault(); mouse.set((event.clientX / window.innerWidth) * 2 - 1, -(event.clientY / window.innerHeight) * 2 + 1); raycaster.setFromCamera(mouse, camera); var intersects = raycaster.intersectObjects(objects);
+        if (intersects.length > 0) { var intersect = intersects[0]; if (isShiftDown) { if (intersect.object !== plane) { scene.remove(intersect.object); objects.splice(objects.indexOf(intersect.object), 1); } } else { var voxel = new THREE.Mesh(cubeGeo,
+        cubeMaterial); voxel.position.copy(intersect.point).add(intersect.face.normal); voxel.position.divideScalar(50).floor().multiplyScalar(50).addScalar(25); scene.add(voxel); objects.push(voxel); } render(); } } function onDocumentKeyDown(event)
+        { switch (event.keyCode) { case 16: isShiftDown = true; break; } } function onDocumentKeyUp(event) { switch (event.keyCode) { case 16: isShiftDown = false; break; } } function render() { renderer.render(scene, camera); }
     </script>
 </body>
 
